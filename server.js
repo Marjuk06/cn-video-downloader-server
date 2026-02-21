@@ -13,20 +13,30 @@ app.use(express.json());
 
 console.log("✅ Using ffmpeg-static at:", ffmpegPath);
 
+// Check if cookies exist
+const cookiesPath = path.join(__dirname, 'cookies.txt');
+if (fs.existsSync(cookiesPath)) {
+    console.log("✅ Cookies file found! YouTube bot protection bypassed.");
+} else {
+    console.log("⚠️ No cookies.txt found! YouTube might block downloads.");
+}
+
 app.post('/api/info', async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: 'URL is required' });
 
     try {
-        const info = await ytDlp(url, {
+        const options = {
             dumpSingleJson: true,
             noWarnings: true,
-            noCallHome: true,
             noCheckCertificate: true,
-            youtubeSkipDashManifest: true,
             ffmpegLocation: ffmpegPath
-        });
+        };
 
+        // Use cookies if available
+        if (fs.existsSync(cookiesPath)) options.cookies = cookiesPath;
+
+        const info = await ytDlp(url, options);
         const formats = [];
 
         const audioFormats = info.formats ? info.formats.filter(f => f.vcodec === 'none' && f.acodec !== 'none') : [];
@@ -63,13 +73,12 @@ app.post('/api/info', async (req, res) => {
 
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Failed to fetch video info' });
+        res.status(500).json({ error: 'Failed to fetch video info. YouTube might be blocking the IP.' });
     }
 });
 
 app.get('/api/download', async (req, res) => {
     const { ytUrl, quality, title, start, end, bitrate } = req.query;
-    
     if (!ytUrl) return res.status(400).send('No URL provided');
 
     if (start || end) {
@@ -79,25 +88,19 @@ app.get('/api/download', async (req, res) => {
     const safeTitle = (title || 'CN_Download').replace(/[^\w\s-]/gi, '').trim().replace(/\s+/g, '_');
     const isAudio = quality === 'Audio';
     const ext = isAudio ? 'mp3' : 'mp4';
-    
     const trimMarker = (start && end) ? `_trim` : '';
     const fileName = `${safeTitle}${trimMarker}_${Date.now()}.${ext}`;
     const filePath = path.join(__dirname, fileName);
 
-    let formatSelector = 'bestvideo+bestaudio/best';
-    if (isAudio) {
-        formatSelector = 'bestaudio';
-    } else if (quality && quality !== 'HD Video' && quality !== 'HD') {
-        const height = quality.replace('p', '');
-        formatSelector = `bestvideo[height<=${height}]+bestaudio/best`;
-    }
-
     const ytDlpOptions = {
-        format: formatSelector,
+        format: isAudio ? 'bestaudio' : (quality && quality !== 'HD Video' && quality !== 'HD' ? `bestvideo[height<=${quality.replace('p', '')}]+bestaudio/best` : 'bestvideo+bestaudio/best'),
         output: filePath,
         ffmpegLocation: ffmpegPath,
         noWarnings: true
     };
+
+    // Use cookies if available
+    if (fs.existsSync(cookiesPath)) ytDlpOptions.cookies = cookiesPath;
 
     if (start && end) {
         ytDlpOptions.downloadSections = `*${start}-${end}`;
@@ -116,11 +119,9 @@ app.get('/api/download', async (req, res) => {
         res.header('Content-Disposition', `attachment; filename="${safeTitle}.${ext}"`);
         await ytDlp(ytUrl, ytDlpOptions);
         res.download(filePath, `${safeTitle}.${ext}`, (err) => {
-            if (err) console.error("Download proxy error:", err);
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         });
     } catch (error) {
-        console.error("Server download/merge error:", error);
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
         if (!res.headersSent) res.status(500).send('Download processing failed');
     }
