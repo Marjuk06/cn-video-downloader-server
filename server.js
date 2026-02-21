@@ -31,7 +31,9 @@ app.post('/api/info', async (req, res) => {
             noWarnings: true,
             noCheckCertificate: true,
             ffmpegLocation: ffmpegPath,
-            format: 'all'
+            format: 'all',
+            // 👇 ADDED: Bypasses YouTube bot block by faking a mobile client
+            extractorArgs: 'youtube:player_client=android,ios,mweb'
         };
 
         // Use cookies if available
@@ -97,7 +99,9 @@ app.get('/api/download', async (req, res) => {
         format: isAudio ? 'bestaudio' : (quality && quality !== 'HD Video' && quality !== 'HD' ? `bestvideo[height<=${quality.replace('p', '')}]+bestaudio/best` : 'bestvideo+bestaudio/best'),
         output: filePath,
         ffmpegLocation: ffmpegPath,
-        noWarnings: true
+        noWarnings: true,
+        // 👇 ADDED: Bypasses YouTube bot block during actual download
+        extractorArgs: 'youtube:player_client=android,ios,mweb'
     };
 
     // Use cookies if available
