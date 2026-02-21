@@ -30,7 +30,8 @@ app.post('/api/info', async (req, res) => {
             dumpSingleJson: true,
             noWarnings: true,
             noCheckCertificate: true,
-            ffmpegLocation: ffmpegPath
+            ffmpegLocation: ffmpegPath,
+            format: 'all'
         };
 
         // Use cookies if available
