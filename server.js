@@ -1,3 +1,4 @@
+/* eslint-env node */
 const express = require('express');
 const cors = require('cors');
 const ytDlp = require('yt-dlp-exec');
@@ -32,8 +33,8 @@ app.post('/api/info', async (req, res) => {
             noCheckCertificate: true,
             ffmpegLocation: ffmpegPath,
             format: 'all',
-            // 👇 ADDED: Bypasses YouTube bot block by faking a mobile client
-            extractorArgs: 'youtube:player_client=android,ios,mweb'
+            rmCacheDir: true, // Clears blocked session memory
+            extractorArgs: 'youtube:player_client=ios' // Strictly uses iOS client
         };
 
         // Use cookies if available
@@ -100,8 +101,8 @@ app.get('/api/download', async (req, res) => {
         output: filePath,
         ffmpegLocation: ffmpegPath,
         noWarnings: true,
-        // 👇 ADDED: Bypasses YouTube bot block during actual download
-        extractorArgs: 'youtube:player_client=android,ios,mweb'
+        rmCacheDir: true, // Clears blocked session memory
+        extractorArgs: 'youtube:player_client=ios' // Strictly uses iOS client
     };
 
     // Use cookies if available
